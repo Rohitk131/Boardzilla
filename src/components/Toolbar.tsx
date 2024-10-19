@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import rough from "roughjs/bin/rough"; // Importing rough.js
+import rough from "roughjs/bin/rough"; 
 import { Pencil, Square, Circle, Undo, Redo, MousePointer2, Type, StickyNote } from "lucide-react";
 import SparklesText from "@/components/ui/sparkles-text";
 
@@ -7,13 +7,15 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
-  const [rectMode, setRectMode] = useState(false); // Track if rectangle mode is active
-  const [circleMode, setCircleMode] = useState(false); // Track if circle mode is active
+  const [shapes, setShapes] = useState([]); // Store drawn shapes
+  const [rectMode, setRectMode] = useState(false);
+  const [circleMode, setCircleMode] = useState(false);
 
   // Handle mouse down event
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if ((rectMode || circleMode) && canvasRef.current) {
-      const rect = canvasRef.current.getBoundingClientRect();
+    const canvas = canvasRef.current;
+    if ((rectMode || circleMode) && canvas) {
+      const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       setStartPos({ x, y });
@@ -23,39 +25,59 @@ export default function Home() {
 
   // Handle mouse move event
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isDrawing && (rectMode || circleMode) && canvasRef.current) {
-      const rect = canvasRef.current.getBoundingClientRect();
-      const rc = rough.canvas(canvasRef.current);
+    const canvas = canvasRef.current;
+    if (isDrawing && (rectMode || circleMode) && canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const rc = rough.canvas(canvas);
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      // Clear the canvas before drawing a new shape
-      const context = canvasRef.current.getContext("2d");
+      // Clear only the current drawing area, not the whole canvas
+      const context = canvas.getContext("2d");
       if (context) {
-        context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      }
+        context.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw the rectangle
-      if (rectMode) {
-        rc.rectangle(startPos.x, startPos.y, x - startPos.x, y - startPos.y);
-      }
+        // Re-draw previous shapes
+        shapes.forEach(shape => {
+          if (shape.type === "rectangle") {
+            rc.rectangle(shape.x, shape.y, shape.width, shape.height);
+          } else if (shape.type === "circle") {
+            rc.circle(shape.x, shape.y, shape.radius * 2);
+          }
+        });
 
-      // Draw the circle (using the distance between start and current point as diameter)
-      if (circleMode) {
-        const radius = Math.sqrt(Math.pow(x - startPos.x, 2) + Math.pow(y - startPos.y, 2));
-        rc.circle(startPos.x, startPos.y, radius * 2); // rough.js takes diameter
+        
+        if (rectMode) {
+          rc.rectangle(startPos.x, startPos.y, x - startPos.x, y - startPos.y);
+        } else if (circleMode) {
+          const radius = Math.sqrt(Math.pow(x - startPos.x, 2) + Math.pow(y - startPos.y, 2));
+          rc.circle(startPos.x, startPos.y, radius * 2);
+        }
       }
     }
   };
 
-  // Handle mouse up event
-  const handleMouseUp = () => {
-    setIsDrawing(false); // Stop drawing
+
+  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDrawing && (rectMode || circleMode) && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Save the drawn shape to the state
+      if (rectMode) {
+        setShapes([...shapes, { type: "rectangle", x: startPos.x, y: startPos.y, width: x - startPos.x, height: y - startPos.y }]);
+      } else if (circleMode) {
+        const radius = Math.sqrt(Math.pow(x - startPos.x, 2) + Math.pow(y - startPos.y, 2));
+        setShapes([...shapes, { type: "circle", x: startPos.x, y: startPos.y, radius }]);
+      }
+      setIsDrawing(false);
+    }
   };
 
   return (
     <div className="flex items-center justify-between w-3/5 bg-gray-800 h-14 rounded-full shadow-lg text-white border-2 border-gray-700 px-8">
-      <div className="flex flex-row">
+      <div className="flex flex-row ">
         <img src="favicon.ico" width={30} height={30} />
         <SparklesText text="BoardZilla" className="text-center" />
       </div>
@@ -64,25 +86,25 @@ export default function Home() {
         <MousePointer2 className="w-6 h-6 cursor-pointer hover:text-blue-600 transition duration-200 active:bg-blue-600 active:scale-110 active:rounded-md active:p-[2px]" />
         <Pencil className="w-6 h-6 cursor-pointer hover:text-blue-600 transition duration-200 active:bg-blue-600 active:scale-110 active:rounded-md active:p-[2px]" />
         
-        {/* Toggle Rectangle Mode */}
+ 
         <Square
           className={`w-6 h-6 cursor-pointer transition duration-200 active:scale-110 active:rounded-md active:p-[2px] ${
             rectMode ? "bg-blue-600 text-white" : "hover:text-blue-600"
           }`}
           onClick={() => {
             setRectMode(true);
-            setCircleMode(false); // Disable circle mode when rectangle mode is enabled
+            setCircleMode(false); 
           }}
         />
         
-        {/* Toggle Circle Mode */}
+        
         <Circle
           className={`w-6 h-6 cursor-pointer transition duration-200 active:scale-110 active:rounded-md active:p-[2px] ${
             circleMode ? "bg-blue-600 text-white" : "hover:text-blue-600"
           }`}
           onClick={() => {
             setCircleMode(true);
-            setRectMode(false); // Disable rectangle mode when circle mode is enabled
+            setRectMode(false); 
           }}
         />
         <Type className="w-6 h-6 cursor-pointer hover:text-blue-600 transition duration-200 active:bg-blue-600 active:scale-110 active:rounded-md active:p-[2px]" />
@@ -95,16 +117,24 @@ export default function Home() {
       </div>
 
       <canvas
-        ref={canvasRef}
-        id="canvas"
-        width={1600}
-        height={1600}
-        className="bg-white border-2 border-gray-300"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        style={{ position: "absolute", zIndex: -10 }}
-      ></canvas>
+  ref={canvasRef}
+  id="canvas"
+  width={window.innerWidth}
+  height={window.innerHeight}
+  className="bg-white"
+  onMouseDown={handleMouseDown}
+  onMouseMove={handleMouseMove}
+  onMouseUp={handleMouseUp}
+  style={{
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100vw", // Full width
+    height: "100vh", // Full height
+    zIndex: -1, // Behind other elements
+  }}
+></canvas>
+
     </div>
   );
 }
